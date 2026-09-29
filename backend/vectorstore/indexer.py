@@ -72,6 +72,14 @@ def index_chunks(
 
         client.upsert(collection_name=collection_name, points=points, wait=True)
 
+    stored_count = client.count(collection_name=collection_name, exact=True).count
+    if stored_count != len(chunks):
+        raise RuntimeError(
+            f"Qdrant point count mismatch for collection '{collection_name}': "
+            f"generated {len(chunks)} chunks, but Qdrant contains {stored_count} "
+            "points. Check for stale points or failed upserts."
+        )
+
     return len(chunks)
 
 

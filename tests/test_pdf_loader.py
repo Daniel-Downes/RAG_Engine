@@ -35,6 +35,29 @@ def test_load_pdfs_returns_empty_list_for_empty_directory(tmp_path):
     assert load_pdfs(tmp_path) == []
 
 
+def test_load_pdfs_removes_repeated_edge_lines_and_page_number_text(tmp_path):
+    pdf_path = tmp_path / "report.pdf"
+    document = pymupdf.open()
+    for page_number in range(1, 5):
+        page = document.new_page()
+        page.insert_text((72, 40), "Repeated running header")
+        page.insert_text((72, 120), f"Main body for page {page_number}")
+        page.insert_text((72, 800), "Repeated proceedings footer")
+        page.insert_text((300, 800), str(page_number))
+    document.save(pdf_path)
+    document.close()
+
+    pages = load_pdfs(tmp_path)
+
+    assert len(pages) == 4
+    for page_number, page in enumerate(pages, start=1):
+        assert "Repeated running header" not in page["text"]
+        assert "Repeated proceedings footer" not in page["text"]
+        assert f"Main body for page {page_number}" in page["text"]
+        assert page["metadata"]["page_number"] == page_number
+        assert page["metadata"]["total_pages"] == 4
+
+
 def test_split_pages_respects_token_limit_and_preserves_metadata():
     import tiktoken
 

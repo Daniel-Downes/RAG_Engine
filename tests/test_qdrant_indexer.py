@@ -1,3 +1,7 @@
+from types import SimpleNamespace
+
+import pytest
+
 from backend.vectorstore.indexer import index_chunks
 
 
@@ -14,10 +18,12 @@ class FakeModel:
 
 
 class FakeQdrantClient:
-    def __init__(self, collection_exists=False):
+    def __init__(self, collection_exists=False, count_override=None):
         self.exists = collection_exists
         self.created = []
         self.upserts = []
+        self.points = {}
+        self.count_override = count_override
 
     def collection_exists(self, collection_name):
         return self.exists
@@ -28,6 +34,15 @@ class FakeQdrantClient:
 
     def upsert(self, **kwargs):
         self.upserts.append(kwargs)
+        for point in kwargs["points"]:
+            self.points[point.id] = point
+
+    def count(self, collection_name, exact):
+        assert exact is True
+        count = self.count_override
+        if count is None:
+            count = len(self.points)
+        return SimpleNamespace(count=count)
 
 
 def test_index_chunks_creates_collection_and_upserts_text_metadata_in_batches():
@@ -90,3 +105,17 @@ def test_index_chunks_returns_zero_without_creating_collection():
     assert index_chunks([], client, model) == 0
     assert client.created == []
     assert client.upserts == []
+
+
+def test_index_chunks_raises_when_qdrant_point_count_does_not_match():
+    client = FakeQdrantClient(count_override=2)
+    model = FakeModel()
+    chunks = [
+        {
+            "text": "A chunk",
+            "metadata": {"source": "manual.pdf", "page_number": 1, "chunk_index": 0},
+        }
+    ]
+
+    with pytest.raises(RuntimeError, match="generated 1 chunks, but Qdrant contains 2"):
+        index_chunks(chunks, client, model, collection_name="test_documents")
