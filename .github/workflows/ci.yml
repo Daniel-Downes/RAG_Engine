@@ -2,13 +2,12 @@ name: Continuous Integration
 
 on:
   push:
-    branches: [ "main" ]
   pull_request:
-    branches: [ "main" ]
 
 jobs:
   test-and-lint:
     runs-on: windows-latest
+    timeout-minutes: 30
 
     steps:
       # Step 1: Checkout the repository code
@@ -19,22 +18,28 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
-          cache: "pip" # Caches dependencies to speed up subsequent workflow runs
+          python-version: "3.13"
+          cache: "pip"
+          cache-dependency-path: requirements.txt
 
-      # Step 3: Install dependencies
-      - name: Install Dependencies
+      - name: Install Project Dependencies
         run: |
           python -m pip install --upgrade pip
-          if (Test-Path requirements.txt) { pip install -r requirements.txt }
-          pip install pytest ruff
+          python -m pip install -r requirements.txt
 
-      # Step 4: Run Code Linter
+      - name: Install CI Tools
+        run: python -m pip install pytest ruff
+
+      - name: Check Dependency Consistency
+        run: python -m pip check
+
+      - name: Verify Ingestion Dependencies
+        run: >-
+          python -c "import pymupdf; import tiktoken;
+          from langchain_text_splitters import RecursiveCharacterTextSplitter"
+
       - name: Lint Code
-        run: |
-          ruff check .
+        run: python -m ruff check .
 
-      # Step 5: Run Unit Tests
       - name: Run Tests
-        run: |
-          pytest
+        run: python -m pytest -q
