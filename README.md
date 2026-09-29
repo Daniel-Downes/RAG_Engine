@@ -97,8 +97,11 @@
     ```
 5. **Ingest documents & launch application:**
     ```bash
-    # Add your source files (PDFs/Markdown) to data/raw_docs/
-    python -m src.vectorstore.indexer
+    # Add PDFs to data/raw_docs/, then start Qdrant
+    docker compose up -d qdrant
+
+    # Extract, chunk, embed with all-MiniLM-L6-v2, and index in Qdrant
+    python -m backend.vectorstore
 
     # Start the FastAPI server
     uvicorn src.main:app --reload
